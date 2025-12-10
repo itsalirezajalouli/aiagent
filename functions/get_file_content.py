@@ -1,5 +1,6 @@
 import os
-from config import Config
+class Config:
+    MAX_CHARS: int = 1000
 
 def get_file_content(working_directory, file_path):
     cfg = Config()

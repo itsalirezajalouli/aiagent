@@ -2,6 +2,7 @@ import argparse
 import os
 import textwrap
 from dotenv import load_dotenv
+from functions.get_file_content import get_file_content
 from prompts import system_prompt
 from google.genai import types, Client
 from functions.get_files_info import get_files_info
@@ -18,6 +19,7 @@ load_dotenv()
 api_key = os.environ.get('GEMINI_API_KEY')
 
 client = Client(api_key = api_key)
+MODEL_NAME = 'gemini-2.5-flash'
 
 def main():
     colors = Colors()
@@ -27,7 +29,6 @@ def main():
     messages = [types.Content(role = 'user',
                               parts = [types.Part(text = args.user_prompt)])]
 
-    model_name = 'gemini-2.5-flash'
     schema_get_files_info = types.FunctionDeclaration(
         name = 'get_files_info',
         description = 'Lists files in the specified directory along with their sizes, constrained to the working directory.',
@@ -63,43 +64,13 @@ def main():
                                          system_instruction = system_prompt)
 
     response = client.models.generate_content(
-        model = model_name,
+        model = MODEL_NAME,
         contents = messages,
         config = config,
     )
 
-    if response.function_calls is not None:
-        for fc in response.function_calls: 
-            print(f'Calling function: {fc.name}({fc.args})')
-            if fc.name == 'get_files_info': 
-                if fc.args is not None:
-                    result = get_files_info(
-                        os.getcwd(),
-                        fc.args['directory'])
-                    messages = [types.Content(
-                        role = 'user',
-                        parts = [types.Part(
-                            text = f'result of calling get_files_infor was: {result}')])]
-                    response = client.models.generate_content(
-                        model = model_name,
-                        contents = messages,
-                        config = config,
-                    )
-            elif fc.name == 'get_file_content': 
-                if fc.args is not None:
-                    result = get_files_info(
-                        os.getcwd(),
-                        fc.args['file_path'])
-                    print(result)
-                    messages = [types.Content(
-                        role = 'user',
-                        parts = [types.Part(
-                            text = f'result of calling get_file_content was: {result}')])]
-                    response = client.models.generate_content(
-                        model = model_name,
-                        contents = messages,
-                        config = config,
-                    )
+    get_response(config, response)
+
 
     # TUI display
     display_input(args, colors)
@@ -138,6 +109,32 @@ def monitor_usage(response, colors):
         print(f'{colors.bold}{colors.red}-> Response tokens:{colors.reset}',
                 response.usage_metadata.candidates_token_count)
         print()
+
+def get_response(config, response, extra = ''):
+    if response.function_calls is not None:
+        for fc in response.function_calls: 
+            print(f'Calling function: {fc.name}({fc.args})')
+            if fc.name == 'get_files_info': 
+                if fc.args is not None:
+                    result = get_files_info(os.getcwd(), fc.args.get('directory', '.'))
+                    messages = [types.Content(role = 'user',
+                                            parts = [types.Part(
+                                            text = f'result of calling get_files_info was: {result}')])]
+                    response = client.models.generate_content(
+                        model = MODEL_NAME, contents = messages, config = config,
+                    )
+            if fc.name == 'get_file_content': 
+                print(response.text)
+                if fc.args is not None:
+                    result = get_file_content(
+                        os.getcwd(),
+                        fc.args['file_path'])
+                    messages = [types.Content(
+                        role = 'user', parts = [types.Part(
+                        text = f'result of get_file_content was: {result}')])]
+                    response = client.models.generate_content(
+                        model = MODEL_NAME, contents = messages, config = config,
+                    )
 
 
 if __name__ == "__main__":
