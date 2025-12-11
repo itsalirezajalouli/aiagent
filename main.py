@@ -6,6 +6,8 @@ from functions.get_file_content import get_file_content
 from prompts import system_prompt
 from google.genai import types, Client
 from functions.get_files_info import get_files_info
+from schemas import (schema_get_file_content, schema_get_files_info,
+                     schema_run_python_file, schema_write_file)
 
 
 class Colors:
@@ -29,36 +31,9 @@ def main():
     messages = [types.Content(role = 'user',
                               parts = [types.Part(text = args.user_prompt)])]
 
-    schema_get_files_info = types.FunctionDeclaration(
-        name = 'get_files_info',
-        description = 'Lists files in the specified directory along with their sizes, constrained to the working directory.',
-        parameters = types.Schema(
-            type = types.Type.OBJECT,
-            properties = {
-                'directory': types.Schema(
-                    type = types.Type.STRING,
-                    description = 'The directory to list files from, relative to the working directory. If not provided, lists files in the working directory itself.'
-                )
-            }
-            )
-    )
-    schema_get_file_content = types.FunctionDeclaration(
-        name = 'get_file_content',
-        description = 'Gets the contents of a specific file in the specified directory, constrained to the working directory.',
-        parameters = types.Schema(
-            type = types.Type.OBJECT,
-            properties = {
-                'file_path': types.Schema(
-                    type = types.Type.STRING,
-                    description = 'The path to the file selected by user. If not provided, list files using get_files_info and try to guess.'
-                )
-            }
-            )
-    )
-
     available_funcs = types.Tool(
-        function_declarations = [schema_get_files_info,
-                                 schema_get_file_content],
+        function_declarations = [schema_get_files_info, schema_get_file_content
+                                 schema_run_python_file, schema_write_file],
     )
     config = types.GenerateContentConfig(tools = [available_funcs],
                                          system_instruction = system_prompt)
